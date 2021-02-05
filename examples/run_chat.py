@@ -57,7 +57,7 @@ class SvsChatApplication(Application):
     def start(self):
         info("[{0}] Starting svs chat\n".format(self.node.name))
         identity = self.get_svs_identity()
-        run_cmd = "/home/ubuntu/chat {} &".format(identity)
+        run_cmd = "/opt/svs/chat {} &".format(identity)
         info("[{}] Running {}\n".format(self.node.name, run_cmd))
         ret = self.node.cmd(run_cmd)
         info("pid: {}\n".format(ret))
@@ -77,7 +77,7 @@ class IdentityApplication(Application):
     """
     Small program to create an identity on each node and save the certification to a common directory
     """
-    def __init__(self, node, key_dir="/home/ubuntu/example-security"):
+    def __init__(self, node, key_dir="/opt/svs/example-security"):
         Application.__init__(self, node)
         self.key_dir = key_dir
 

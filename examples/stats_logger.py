@@ -5,8 +5,8 @@ from datetime import datetime
 from collections import defaultdict
 
 class StatsLogger:
-    stats_directory = "/home/ubuntu/stats"
-    log_files_path = "/home/ubuntu/logs/svs/node_*"
+    stats_directory = "/opt/svs/stats"
+    log_files_path = "/opt/svs/logs/svs/node_*"
     def __init__(self, width, height, load_averages, cpu_percents):
         self.width = width
         self.height = height

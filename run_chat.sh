@@ -13,5 +13,5 @@ if [ "x$HEIGHT" = "x" ]; then
 fi
 
 rm -rf /tmp/minindn/node_*
-rm /home/ubuntu/logs/svs/node_*
+rm /opt/svs/logs/svs/node_*
 python examples/run_chat.py --width $WIDTH --height $HEIGHT
