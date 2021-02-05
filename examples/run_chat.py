@@ -39,6 +39,7 @@ from minindn.helpers.ndn_routing_helper import NdnRoutingHelper
 
 import time
 from stats_logger import StatsLogger
+from collections import defaultdict
 
 def get_host_name(row, col):
     return "node_{}_{}".format(row, col)
@@ -154,12 +155,17 @@ if __name__ == '__main__':
             info(host_name + '\n')
             hosts[row][col] = topo.addHost(host_name)
 
+    routes = defaultdict(list)
     for row in range(height):
         for col in range(width):
             if row + 1 < height:
                 topo.addLink(hosts[row][col], hosts[row+1][col], delay='10ms')
+                routes[hosts[row][col]].append([hosts[row+1][col], "1", hosts[row+1][col]])
+                routes[hosts[row+1][col]].append([hosts[row][col], "1", hosts[row][col]])
             if col + 1 < width:
                 topo.addLink(hosts[row][col], hosts[row][col+1], delay='10ms')
+                routes[hosts[row][col]].append([hosts[row][col+1], "1", hosts[row][col+1]])
+                routes[hosts[row][col+1]].append([hosts[row][col], "1", hosts[row][col]])
 
     ndn = Minindn(parser=parser, topo=topo)
 
@@ -182,7 +188,9 @@ if __name__ == '__main__':
 
     start = int(time.time() * 1000)
     #grh.calculateNPossibleRoutes()
-    grh.calculateRoutes()
+    #grh.calculateRoutes()
+    grh.routes = routes
+    grh.globalRoutingHelperHandler()
     end = int(time.time() * 1000)
     info('Added static routes to NFD in {} ms\n'.format(end - start))
 
