@@ -38,7 +38,7 @@ from minindn.apps.nfd import Nfd
 from minindn.helpers.ndn_routing_helper import NdnRoutingHelper
 
 import time
-from stats_logger import StatsLogger
+from brief_stats_logger import StatsLogger
 from collections import defaultdict
 
 def get_host_name(row, col):
@@ -138,6 +138,8 @@ if __name__ == '__main__':
                          help='''number of nodes in width''')
     parser.add_argument('--height', dest='height', type=int, required=True,
                          help='''number of nodes in height''')
+    parser.add_argument('--name', dest='name', type=str, required=False, default="",
+                         help='''name for stats file''')
     
     topo = Topo()
 
@@ -217,7 +219,7 @@ if __name__ == '__main__':
         info("cpu percents: {}\n".format(cpu_percents))
         time.sleep(5)
         count = count_running(pids)
-    stats_logger = StatsLogger(width, height, load_averages, total_cpu_percents)
+    stats_logger = StatsLogger(args.name, width, height, load_averages, total_cpu_percents)
     logfile = stats_logger.log_stats()
     info("summary located at {}\n".format(logfile))
              
