@@ -24,7 +24,7 @@
 from mininet.log import debug
 from minindn.minindn import Minindn
 
-SLEEP_TIME = 0.2
+SLEEP_TIME = 0.01
 
 class Nfdc(object):
     STRATEGY_ASF = 'asf'

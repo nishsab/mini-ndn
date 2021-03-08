@@ -6,7 +6,7 @@ from collections import defaultdict
 
 class StatsLogger:
     stats_directory = "/opt/svs/stats"
-    log_files_path = "/opt/svs/logs/svs/node_*"
+    log_files_path = "/opt/svs/logs/svs/*"
     def __init__(self, name, width, height, load_averages, cpu_percents):
         self.width = width
         self.height = height
@@ -72,8 +72,11 @@ class StatsLogger:
         for line in lines:
             tokens = line.split(",")
             for token in tokens:
-                term, value = token.split(":")
-                event_counts[term] += int(value)
+                try:
+                    term, value = token.split(":")
+                    event_counts[term] += int(value)
+                except:
+                    print line
         return [ (term, event_counts[term]) for term in terms ] 
     
     def count_events_old(self, lines):

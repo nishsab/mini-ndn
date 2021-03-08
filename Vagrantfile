@@ -16,7 +16,7 @@ fi
 ./install.sh -qa
 
 sudo apt-get update
-sudo apt-get install emacs
+sudo apt-get -y install emacs
 
 mkdir /home/vagrant/src
 cd /home/vagrant/src
@@ -47,7 +47,7 @@ Vagrant.configure(2) do |config|
   config.vm.provision "shell", privileged: false, inline: $script
   config.vm.provider "virtualbox" do |vb|
     vb.name = "mini-ndn_box"
-    vb.memory = 4096
+    vb.memory = 8192
     vb.cpus = 4
   end
 end

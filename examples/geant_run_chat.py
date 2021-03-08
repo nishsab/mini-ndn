@@ -40,6 +40,8 @@ from minindn.helpers.ndn_routing_helper import NdnRoutingHelper
 import time
 from stats_logger import StatsLogger
 from collections import defaultdict
+import configparser
+
 
 def get_host_name(row, col):
     return "node_{}_{}".format(row, col)
@@ -48,6 +50,7 @@ class SvsChatApplication(Application):
     """
     Wrapper class to run the chat application from each node
     """
+
     def __init__(self, node):
         Application.__init__(self, node)
 
@@ -57,26 +60,24 @@ class SvsChatApplication(Application):
     def start(self):
         info("[{0}] Starting svs chat\n".format(self.node.name))
         identity = self.get_svs_identity()
-        run_cmd = "/opt/svs/chat {} &> /opt/svs/terminal_{}.log &".format(identity, self.node.name)
+        run_cmd = "/opt/svs/chat {} &".format(identity)
         info("[{}] Running {}\n".format(self.node.name, run_cmd))
         ret = self.node.cmd(run_cmd)
         info("pid: {}\n".format(ret))
-        #self.pid = int(ret.split()[1])
+
     def is_running(self):
         return psutil.pid_exists(self.pid)
-        #try:
-        #    os.kill(self.pid, 0)
-        #except OSError:
-        #    return False
-        #else:
-        #    return True
+
     def cpu_percent(self):
         p = psutil.Process(self.pid)
         return p.cpu_percent()
+
+
 class IdentityApplication(Application):
     """
     Small program to create an identity on each node and save the certification to a common directory
     """
+
     def __init__(self, node, key_dir="/opt/svs/example-security"):
         Application.__init__(self, node)
         self.key_dir = key_dir
@@ -95,8 +96,10 @@ class IdentityApplication(Application):
         info("[{}] saving key to {}\n".format(self.node.name, key_path))
         self.node.cmd("ndnsec cert-dump `ndnsec get-default -c -i {}` > {}".format(identity, key_path))
 
+
 def count_running(pids):
     return sum(psutil.pid_exists(pid) for pid in pids)
+
 
 def get_cpu_percents(processes):
     cpu_percents = []
@@ -107,18 +110,19 @@ def get_cpu_percents(processes):
             pass
     return cpu_percents
 
+
 def get_pids():
     pids = []
     for proc in psutil.process_iter():
-       try:
-           pinfo = proc.as_dict(attrs=['pid', 'name', 'create_time'])
-           # Check if process name contains the given name string.
-           if "chat" in pinfo['name'].lower() :
-               pids.append(pinfo['pid'])
-       except (psutil.NoSuchProcess, psutil.AccessDenied , psutil.ZombieProcess) :
-           pass
+        try:
+            pinfo = proc.as_dict(attrs=['pid', 'name', 'create_time'])
+            # Check if process name contains the given name string.
+            if "chat" in pinfo['name'].lower():
+                pids.append(pinfo['pid'])
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
     return pids
-                        
+
 
 if __name__ == '__main__':
     setLogLevel('info')
@@ -129,72 +133,47 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--face-type', dest='faceType', default='udp', choices=['udp', 'tcp'])
     parser.add_argument('--routing', dest='routingType', default='link-state',
-                         choices=['link-state', 'hr', 'dry'],
-                         help='''Choose routing type, dry = link-state is used
+                        choices=['link-state', 'hr', 'dry'],
+                        help='''Choose routing type, dry = link-state is used
                                  but hr is calculated for comparision.''')
     parser.add_argument('--svs-prefix', dest='svsPrefix', default='/ndn/svs',
                         help='''prefix for nfd multicast strategy.''')
-    parser.add_argument('--width', dest='width', type=int, required=True,
-                         help='''number of nodes in width''')
-    parser.add_argument('--height', dest='height', type=int, required=True,
-                         help='''number of nodes in height''')
     parser.add_argument('--name', dest='name', type=str, required=False, default="",
-                         help='''name for stats file''')
-    parser.add_argument('--loss', dest='loss', type=float, required=False, default=0.0,
-                         help='''loss percentage''')
-    
+                        help='''name for stats file''')
+
     topo = Topo()
 
     args = parser.parse_args()
-    height, width = args.height, args.width
-    print height, width
 
-    info("Creating a grid topology of height {} and width {}\n".format(height, width))
-
-    hosts = [ [ None for col in range(width) ] for row in range(height) ]
-
-    for row in range(height):
-        for col in range(width):
-            host_name = get_host_name(row, col)
-            info(host_name + '\n')
-            hosts[row][col] = topo.addHost(host_name)
-
-    routes = defaultdict(list)
-    for row in range(height):
-        for col in range(width):
-            if row + 1 < height:
-                topo.addLink(hosts[row][col], hosts[row+1][col], delay='10ms', loss=args.loss)
-                routes[hosts[row][col]].append([hosts[row+1][col], "1", hosts[row+1][col]])
-                routes[hosts[row+1][col]].append([hosts[row][col], "1", hosts[row][col]])
-            if col + 1 < width:
-                topo.addLink(hosts[row][col], hosts[row][col+1], delay='10ms', loss=args.loss)
-                routes[hosts[row][col]].append([hosts[row][col+1], "1", hosts[row][col+1]])
-                routes[hosts[row][col+1]].append([hosts[row][col], "1", hosts[row][col]])
-
-    ndn = Minindn(parser=parser, topo=topo)
+    info("Creating the Geant topology\n")
+    topoFile = "topologies/geant.conf"
+    ndn = Minindn(parser=parser, topoFile=topoFile)
 
     ndn.start()
 
     info('Starting NFD on nodes\n')
     nfds = AppManager(ndn, ndn.net.hosts, Nfd)
-    time.sleep(5)
-    
+
     info('Setting NFD strategy to multicast on all nodes with prefix {}\n'.format(ndn.args.svsPrefix))
     for node in ndn.net.hosts:
-        #Nfdc.setStrategy(node, ndn.args.svsPrefix, Nfdc.STRATEGY_MULTICAST)
-        Nfdc.setStrategy(node, "/", Nfdc.STRATEGY_MULTICAST)
+        Nfdc.setStrategy(node, ndn.args.svsPrefix, Nfdc.STRATEGY_MULTICAST)
+        # Nfdc.setStrategy(node, "/", Nfdc.STRATEGY_MULTICAST)
+
+    config = configparser.ConfigParser(delimiters=' ')
+    config.read(topoFile)
+    items = config.items('links')
+    routes = defaultdict(list)
+    for item in items:
+        link = item[0].split(':')
+        routes[link[0]].append([link[1], "1", link[1]])
+        routes[link[1]].append([link[0], "1", link[0]])
 
     info('Adding static routes to NFD\n')
     grh = NdnRoutingHelper(ndn.net, ndn.args.faceType, ndn.args.routingType)
-    for row in range(height):
-        for col in range(width):
-            host_name = get_host_name(row, col)
-            grh.addOrigin([ndn.net[host_name]], ["/ndn/svs"])
-            grh.addOrigin([ndn.net[host_name]], ["/ndn/svs"])
+    for host in ndn.net:
+        grh.addOrigin([ndn.net[host]], ["/ndn/svs"])
 
     start = int(time.time() * 1000)
-    #grh.calculateNPossibleRoutes()
-    #grh.calculateRoutes()
     grh.routes = routes
     grh.globalRoutingHelperHandler()
     end = int(time.time() * 1000)
@@ -208,9 +187,9 @@ if __name__ == '__main__':
     pids = get_pids()
     info("pids: {}\n".format(pids))
     count = count_running(pids)
-    processes = [ psutil.Process(pid) for pid in pids ]
+    processes = [psutil.Process(pid) for pid in pids]
     cpu_percents = get_cpu_percents(processes)
-    
+
     load_averages = []
     total_cpu_percents = []
     while count > 0:
@@ -223,10 +202,10 @@ if __name__ == '__main__':
         info("cpu percents: {}\n".format(cpu_percents))
         time.sleep(5)
         count = count_running(pids)
-    #stats_logger = StatsLogger(args.name, width, height, load_averages, total_cpu_percents)
-    #logfile = stats_logger.log_stats()
-    #info("summary located at {}\n".format(logfile))
+    stats_logger = StatsLogger(args.name, len(ndn.net), 1, load_averages, total_cpu_percents)
+    logfile = stats_logger.log_stats()
+    info("summary located at {}\n".format(logfile))
 
-    MiniNDNCLI(ndn.net)
+    # MiniNDNCLI(ndn.net)
 
     ndn.stop()

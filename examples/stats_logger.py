@@ -4,15 +4,20 @@ import glob
 from datetime import datetime
 from collections import defaultdict
 
+def to_milliseconds(timestr):
+    d = datetime.strptime(timestr, '%Y/%m/%d %H:%M:%S.%f').strftime('%s.%f')
+    return int(float(d) * 1000)
+
 class StatsLogger:
     stats_directory = "/opt/svs/stats"
-    log_files_path = "/opt/svs/logs/svs/node_*"
-    def __init__(self, name, width, height, load_averages, cpu_percents):
+    log_files_path = "/opt/svs/logs/svs/*"
+    def __init__(self, name, width, height, load_averages, cpu_percents, loss=0.0):
         self.width = width
         self.height = height
         self.load_averages = load_averages
         self.cpu_percents = cpu_percents
         self.name = name
+        self.loss = loss
     def get_filename(self):
         timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
         return "{}/stats_{}_{}_{}_{}.txt".format(StatsLogger.stats_directory, self.name, timestamp, self.width, self.height)
@@ -44,10 +49,12 @@ class StatsLogger:
         print("event counts: {}".format(event_counts))
         state_vector_stats = self.assess_state_vector(lines)
         print("state vector stats: {}".format(state_vector_stats))
-        self.write_to_file(filename, node_counts + load_stats + event_counts + state_vector_stats)
+        delay_stats = self.get_delay_stats(lines)
+        print("delay stats: {}".format(delay_stats))
+        self.write_to_file(filename, node_counts + load_stats + event_counts + state_vector_stats + delay_stats)
         return filename
     def get_node_counts(self):
-        return [ ("num nodes", self.width * self.height), ("width", self.width), ("height", self.height) ]
+        return [ ("num nodes", self.width * self.height), ("width", self.width), ("height", self.height), ("loss", self.loss) ]
     def get_load_stats(self):
         average_load_average = sum(self.load_averages) / len(self.load_averages)
         average_cpu_percent = sum(self.cpu_percents) / len(self.cpu_percents)
@@ -56,7 +63,7 @@ class StatsLogger:
         last_state_vector = {}
         for line in lines:
             if "state vector" in line:
-                tokens = line.split("\t")
+                tokens = line.split("\t") + [""]
                 name, state_vector = tokens[1], tokens[3]
                 last_state_vector[name] = state_vector
         sequence_numbers = []
@@ -71,6 +78,27 @@ class StatsLogger:
             for term in terms:
                 if term in line:
                     event_counts[term] += 1
-        return [ (term, event_counts[term]) for term in terms ] 
+        return [ (term, event_counts[term]) for term in terms ]
+    def get_delay_stats(self, lines):
+        first, last = defaultdict(int), defaultdict(int)
+        for line in lines:
+            if "new data" in line:
+                ts, node, _, node_seq = line.split("\t")
+                millis = to_milliseconds(ts)
+                last[node_seq] = millis
+            elif "publish data" in line:
+                ts, node, _, seq = line.split("\t")
+                millis = to_milliseconds(ts)
+                node_seq = "{}:{}".format(node, seq)
+                first[node_seq] = millis
+        delays = [last[node_seq] - first[node_seq] for node_seq in last if node_seq in first]
+        ave_delay = sum(delays) / len(delays)
+        max_delay = max(delays)
+        #for l in last:
+        #    print l, last[l], first[l], last[l] - first[l]
+
+
+        return [ ("average delay", ave_delay), ("max delay", max_delay) ]
+        
 
         
